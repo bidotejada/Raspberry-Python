@@ -1,22 +1,31 @@
 import RPi.GPIO as GPIO
-import time
+from time import sleep
 
-LED = 18
 
-GPIO.setwarnings(False)
-GPIO.setmode(GPIO.BCM)  # GPIO names
-# GPIO.setmode(GPIO.BOARD) # pin names
-GPIO.setup(LED, GPIO.OUT, initial=1)  # initial (0 or 1)
+def main():
+    LED = 18
 
-for i in range(60):
-    GPIO.output(LED, GPIO.LOW)
-    time.sleep(.1)
-    GPIO.output(LED, GPIO.HIGH)
-    time.sleep(.3)
+    GPIO.setwarnings(False)
+    GPIO.setmode(GPIO.BCM)  # GPIO names
+    # GPIO.setmode(GPIO.BOARD) # pin names
+    GPIO.setup(LED, GPIO.OUT, initial=1)  # initial (0 or 1)
+
+    for i in range(15):
+        GPIO.output(LED, GPIO.LOW)
+        sleep(.1)
+        GPIO.output(LED, GPIO.HIGH)
+        sleep(.3)
+
 
 # clean up on exit
 '''
 	Useful if GPIO pin stays on.
 	Turns it back of.
 '''
-GPIO.cleanup()
+if __name__ == '__main__':
+    try:
+        main()
+        GPIO.cleanup()
+    except KeyboardInterrupt:
+        print(' - Interrupted')  # if CTRL+C is pressed, exit cleanly
+        GPIO.cleanup()  # clean up all GPIO
