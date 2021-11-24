@@ -1,29 +1,73 @@
 from tkinter import *
 from tkinter.ttk import *
+from tkinter.messagebox import showinfo
 
-# launch a windowwith the object name of canvas(window)
+root = Tk()
+root.geometry('500x500')
 
-canvas = Tk()
-canvas.geometry('500x500')
+f_name = StringVar()
+l_name = StringVar()
+display_gender = StringVar()
 
-# naming the main canvas
-canvas.title('test gui window')
+root.title('Submit User Info')
+title_frame = Frame(root)
+title_frame.pack()
 
-# add a label to the canvas
-label = Label(canvas, text='Hello, world!').pack()
+label = Label(title_frame, text='Hello, world!', anchor=W)
+label.pack(side=LEFT)
 
-frame = Frame(canvas)
-# geometry method
-frame.pack()
+label2 = Label(title_frame, text='and galaxy', anchor=E)
+label2.pack(side=RIGHT)
 
-# create a button with a label
-# terminates window
-button = Button(frame, text='click me!', command=canvas.destroy)
-button.pack()
 
-# create a label
-label1 = Label(frame, text='you won\'t')
-label1.pack()
-entry = Entry(frame, text='yes').pack()
-# call the main loop to run the program
-canvas.mainloop()
+name_frame = Frame(root)
+name_frame.pack()
+
+gender_frame = Frame(root)
+gender_frame.pack()
+
+
+button = Button(root, text='Exit window...', command=root.destroy)
+button.pack(side=BOTTOM)
+
+fname_label = Label(name_frame, text='First name:')
+fname_label.pack()
+
+fname_entry = Entry(name_frame, textvariable=f_name)
+fname_entry.pack()
+
+lname_label = Label(name_frame, text='Last name:')
+lname_label.pack()
+
+lname_entry = Entry(name_frame, textvariable=l_name)
+lname_entry.pack()
+
+gender_label = Label(gender_frame, text='Gender:')
+gender_label.pack()
+
+
+genders = [['Male', 'M'],
+           ['Female', 'F']]
+
+for gender in genders:
+    btn = Radiobutton(
+        gender_frame,
+        text=gender[0],
+        value=gender[1],
+        variable=display_gender
+    )
+    btn.pack(fill='x', padx=5, pady=5)
+
+submit_frame = Frame(root)
+submit_frame.pack()
+
+submit_btn = Button(submit_frame,
+                    text='Submit info',
+                    command=lambda: showinfo(
+                        title='Submit message',
+                        message=f'First name: {f_name.get()}\nLast name: {l_name.get()}\nGender: {display_gender.get()}'
+                    )
+                    )
+submit_btn.pack()
+
+root.mainloop()
