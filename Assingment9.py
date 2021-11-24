@@ -1,6 +1,18 @@
 from tkinter import *
 # from tkinter.ttk import *
 from tkinter.messagebox import showinfo
+from os.path import exists
+from time import sleep
+from gpiozero import RGBLED
+# from signal import pause
+import json
+
+# BCM GPIOs
+RED = 17
+GREEN = 27
+BLUE = 22
+# led = RGBLED(RED, GREEN, BLUE)
+# led.color = (1, 1, 0)
 
 # main window
 root = Tk()
@@ -38,6 +50,10 @@ green.pack(padx=5, pady=10, side=LEFT)
 blue = Scale(frame2, from_=100, to=0, orient=VERTICAL)
 blue.pack(padx=5, pady=10, side=LEFT)
 
+activate_btn = Button(text='Activate..', command=lambda: print(
+    f'Activated color: ({red.get()}, {green.get()}, {blue.get()})'))
+activate_btn.pack()
+
 # save functions frame
 frame3 = Frame(root)
 frame3.pack(side=BOTTOM)
@@ -49,6 +65,7 @@ save_val.pack(side=LEFT)
 display_saved = Button(frame3, text='Display Saved', command=lambda: showinfo(
     title='Saved Vals', message=f'Red: {red.get()}\nGreen: {green.get()}\nBlue: {blue.get()}'))
 display_saved.pack(side=RIGHT)
+
 
 # launch main window
 root.mainloop()
