@@ -1,24 +1,72 @@
 from tkinter import *
-# from tkinter.ttk import *
-from tkinter.messagebox import showinfo
 from os.path import exists
-from time import sleep
 from gpiozero import RGBLED
-# from signal import pause
 import json
 
-# BCM GPIOs
+# BCM GPIOs used by gpiozero module
+# gpiozero is a higher level implementation of the RPi.GPIO module
+# that has an overall cleaner code and provides easy access to GPIO pins.
+
 RED = 17
 GREEN = 27
 BLUE = 22
-# led = RGBLED(RED, GREEN, BLUE)
-# led.color = (1, 1, 0)
+
+# assigning pins to RGB LED
+led = RGBLED(RED, GREEN, BLUE)
+
+# creating save file
+settings_file_name = "LEDToggleConfig.json"
+rt_vars = dict()
+if exists(settings_file_name):
+    # Load configuration information if it exists
+    file = open(settings_file_name, 'r')
+    rt_vars_text = file.read()
+    rt_vars = json.loads(rt_vars_text)
+    led.color = (rt_vars['LEDState'][0], rt_vars['LEDState']
+                 [1], rt_vars['LEDState'][2])
+else:
+    # Initialize Default Values
+    rt_vars["LEDState"] = (0, 0, 0)
+    # save Default Values
+    rt_vars_json = json.dumps(rt_vars)
+    file = open(settings_file_name, "w")
+    file.write(rt_vars_json)
+    file.close()
+
+# this function puts the users input to action
+# turning LED different colors
+
+
+def activate_color():
+    global rt_vars
+    global led
+    LEDState = rt_vars["LEDState"]
+    led.color = (red.get()/100, green.get()/100, blue.get()/100)
+    rt_vars['LEDState'] = (red.get()/100, green.get()/100, blue.get()/100)
+    print(
+        f'Activated color: {rt_vars["LEDState"]}')
+
+# this function saves current state to save file
+# and exits the GUI
+
+
+def save_exit():
+    global rt_vars
+    print(f'Saved values: {rt_vars}')
+    file = open(settings_file_name, "w")
+    rt_vars_json = json.dumps(rt_vars)
+    file.write(rt_vars_json)
+    file.close()
+    root.destroy()
+
 
 # main window
 root = Tk()
 
+# starting window size
 root.geometry('425x300')
 
+# window title
 root.title('LED light show')
 
 title_label = Label(text='Move sliders to change the LED color')
@@ -50,22 +98,21 @@ green.pack(padx=5, pady=10, side=LEFT)
 blue = Scale(frame2, from_=100, to=0, orient=VERTICAL)
 blue.pack(padx=5, pady=10, side=LEFT)
 
-activate_btn = Button(text='Activate..', command=lambda: print(
-    f'Activated color: ({red.get()}, {green.get()}, {blue.get()})'))
+# sets initial value if any was saved
+# if not sets default starting value of 0 (zero)
+red.set(rt_vars['LEDState'][0]*100)
+green.set(rt_vars['LEDState'][1]*100)
+blue.set(rt_vars['LEDState'][2]*100)
+
+activate_btn = Button(text='Activate..', command=lambda: activate_color())
 activate_btn.pack()
 
-# save functions frame
+# save/exit functions frame
 frame3 = Frame(root)
 frame3.pack(side=BOTTOM)
 
-save_val = Button(frame3, text='Save values', command=lambda: print(
-    red.get(), green.get(), blue.get()))
+save_val = Button(frame3, text='Save & Exit', command=lambda: save_exit())
 save_val.pack(side=LEFT)
-
-display_saved = Button(frame3, text='Display Saved', command=lambda: showinfo(
-    title='Saved Vals', message=f'Red: {red.get()}\nGreen: {green.get()}\nBlue: {blue.get()}'))
-display_saved.pack(side=RIGHT)
-
 
 # launch main window
 root.mainloop()
