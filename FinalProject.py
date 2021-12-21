@@ -1,145 +1,184 @@
 from tkinter import *
-# from tkinter.ttk import *
 from tkinter.messagebox import showinfo
 from os.path import exists
 from time import sleep
-from gpiozero import RGBLED
-# from signal import pause
+from gpiozero import LED, Servo
 import json
-import RPi.GPIO as GPIO
-import sys
 import digitalio
 import board
 import adafruit_matrixkeypad
 from cryptography.fernet import Fernet
-import base64
 
-GPIO.setwarnings(False)
-GPIO.setmode(GPIO.BCM)
-# LED BCM/GPIO pins
-RED = 17
-GREEN = 27
-BLUE = 22
+# setup encryption
+key = b'pdv4ABwAgu-dXsZf1kBfaKg28DUVllf50VrrMm38tiQ='
+f = Fernet(key)
 
-led = RGBLED(RED, GREEN, BLUE)
-led.color = (0, 0, 1)
 
-# creating save file
-settings_file_name = "encrypted_password.json"
+def encrypt(decrypted_passcode):
+    fernet_token = f.encrypt(decrypted_passcode.encode("utf-8"))
+    return fernet_token
+
+
+def decrypt(fernet_token):
+    decrypted_passcode = f.decrypt(fernet_token).decode("utf-8")
+    return decrypted_passcode
+
+
+# setup outputs
+servo = Servo(4)
+red = LED(17)
+green = LED(27)
+blue = LED(22)
+
+# setup keypad
+cols = [digitalio.DigitalInOut(x) for x in (
+    board.D10, board.D9, board.D11, board.D5)]
+rows = [digitalio.DigitalInOut(x) for x in (
+    board.D6, board.D13, board.D19, board.D26)]
+
+keys = (("1", "2", "3", "A"),
+        ("4", "5", "6", "B"),
+        ("7", "8", "9", "C"),
+        ("*", "0", "#", "D"))
+
+keypad = adafruit_matrixkeypad.Matrix_Keypad(rows, cols, keys)
+
+
+# Initializing Locker
+settings_file_name = "FootLocker.json"
 rt_vars = dict()
 if exists(settings_file_name):
     # Load configuration information if it exists
     file = open(settings_file_name, 'r')
     rt_vars_text = file.read()
     rt_vars = json.loads(rt_vars_text)
-    # led.color = (rt_vars['LEDState'][0], rt_vars['LEDState']
-    #              [1], rt_vars['LEDState'][2])
-    led.color = rt_vars["LEDState"]
-    password = rt_vars["passcode"]
-    lock_state = rt_vars["lock_state"]
+    decrypted_code = decrypt(rt_vars["user_code"].encode("utf-8"))
+    user_code = decrypted_code
 else:
     # Initialize Default Values
-    rt_vars["LEDState"] = (0, 0, 1)
-    rt_vars["passcode"] = "0000"
-    rt_vars["lock_state"] = "locked"
+    default_pass = encrypt("0000")
+    rt_vars["user_code"] = default_pass.decode("utf-8")
     # save Default Values
     rt_vars_json = json.dumps(rt_vars)
     file = open(settings_file_name, "w")
     file.write(rt_vars_json)
     file.close()
+    user_code = decrypt(rt_vars["user_code"].encode("utf-8"))
 
-# LED flash red, turn green, or turn blue
-
-
-def led_action(type):
-    if type == "error":
-        led.color = (1, 0, 0)
-        sleep(.5)
-        led.color = (0, 0, 0)
-        sleep(.5)
-        led.color = (1, 0, 0)
-        sleep(.5)
-        led.color = (0, 0, 0)
-    elif type == "good":
-        pass
-    elif type == "wait":
-        pass
-    else:
-        pass
+servo.min()
 
 
-def btn_action(option):
-    if option == "lock":
-        if rt_vars["lock_state"] == 'locked':
-            print('The safe is already locked!!')
-        else:
-            led.color = (0, 0, 1)
-    elif option == "unlock":
-        if rt_vars["lock_state"] == 'unlocked':
-            print('The safe is already unlocked!!')
-        else:
-            led.color = (0, 1, 0)
-    elif option == "change":
-        led.color = (0, 0, 0)
-    else:
-        pass
+def changer():
+    '''Initialize Pop-Up GUI to change passcode'''
+    global pop
+    blue.on()
+    new_code = StringVar()
+    pop = Toplevel(root)
+    pop.title("Change Passcode")
+    pop.geometry("250x150")
+    pop_label = Label(pop, text="Enter new Passcode..")
+    pop_label.pack(pady=10)
+    new_code_entry = Entry(pop, textvariable=new_code)
+    new_code_entry.pack(pady=5)
+    pop_frame = Frame(pop)
+    pop_frame.pack(pady=5)
+    accept = Button(pop_frame, text="Accept",
+                    command=lambda: save(new_code.get()))
+    accept.grid(row=0, column=1)
+    cancel = Button(pop_frame, text="Cancel", command=lambda: pop.destroy())
+    cancel.grid(row=0, column=2)
 
 
-# encryption section
-key = b'Q19rhxzv0FxMzg0o_E8SA_5rTl8__t1ZgN7XdI_L_6I='
-# cipher suite
-fernet = Fernet(key)
-password = "0000"
-encrypted_password = fernet.encrypt(password.encode())
-decrypted_password = fernet.decrypt(encrypted_password).decode()
+def save(new_code):
+    '''save new passcode'''
+    pop.destroy()
+    global rt_vars
+    global user_code
+    blue.off()
+    green.blink(on_time=0.25, off_time=0.25, n=3)
+    encrypted_passcode = encrypt(new_code)
+
+    rt_vars["user_code"] = encrypted_passcode.decode("utf-8")
+    user_code = decrypt(rt_vars["user_code"].encode("utf-8"))
+    print(
+        f'Encrypted code: {rt_vars["user_code"]}\nDecrypted code: {user_code}')
+    file = open(settings_file_name, "w")
+    rt_vars_json = json.dumps(rt_vars)
+    file.write(rt_vars_json)
+    file.close()
 
 
-cols = [digitalio.DigitalInOut(x) for x in (10, 9, 11, 5)]
-rows = [digitalio.DigitalInOut(x) for x in (6, 13, 19, 26)]
+def error():
+    '''blink red LED 3 times when wrong passcode entered'''
+    green.off()
+    blue.off()
+    red.blink(on_time=0.25, off_time=0.25, n=3)
 
-keys = ((1, 2, 3, "A"),
-        (4, 5, 6, "B"),
-        (7, 8, 9, "C"),
-        ("*", 0, "#", "D"))
 
-keypad = adafruit_matrixkeypad.Matrix_Keypad(rows, cols, keys)
+def clear_code():
+    code_entry.delete(0, 'end')
 
-code_entered = list()
-while True:
-    keys = keypad.pressed_keys
-    if keys:
-        code_entered.append(keys)
-        print("Pressed: ", keys)
-        if len(code_entered) == 4:
+
+def check_code():
+    '''action performed when unlock btn pressed'''
+    count = 0
+    blue.on()
+    while True:
+        keys = keypad.pressed_keys
+        if keys:
+            code_entry.insert(count, keys)
+            count += 1
+        if count >= 4:
             break
-    sleep(0.1)
+        sleep(0.200)
+    if passcode.get() == user_code:
+        blue.off()
+        green.on()
+        servo.max()
+        showinfo(title='unlock message', message='unlock succesful')
+        sleep(1)
+        green.blink(on_time=0.25, off_time=0.25)
+        clear_code()
+    else:
+        error()
+        servo.min()
+        showinfo(title='unlock message', message='unlock unsuccesful')
+        clear_code()
 
-actions = ['lock', 'unlock', 'change', 'error', 'good', 'wait']
 
+def lock():
+    servo.min()
+    green.off()
+
+
+# Initialize Main GUI
 root = Tk()
 
 root.geometry('425x300')
 root.title("Lock Security System (Encrypted)")
 
-label1 = Label(root, text='Press the buttons to perform an action of the lock')
+label1 = Label(root, text='Press the buttons to perform desired actions')
 label1.pack()
 
-# lock_btn = Button(root, text='Lock', command=lambda: lock())
-# lock_btn.pack()
-# unlock_btn = Button(root, text='Unlock', command=lambda: unlock())
-# unlock_btn.pack()
-# code_btn = Button(root, text='Change Passcode',
-#                   command=lambda: change_passcode())
-# code_btn.pack()
+passcode = StringVar()
+code_entry = Entry(root, textvariable=passcode)
+code_entry.pack(pady=5)
 
-lock_btn = Button(root, text='Lock', command=lambda: btn_action(actions[0]))
-lock_btn.pack()
 unlock_btn = Button(root, text='Unlock',
-                    command=lambda: btn_action(actions[1]))
+                    command=lambda: check_code())
 unlock_btn.pack()
-code_btn = Button(root, text='Change Passcode',
-                  command=lambda: btn_action(actions[2]))
-code_btn.pack()
+
+lock_btn = Button(root, text='Lock',
+                  command=lambda: lock())
+lock_btn.pack()
+
+change_btn = Button(root, text='Change Pin',
+                    command=lambda: changer())
+change_btn.pack()
+
+save_btn = Button(root, text='Exit',
+                  command=lambda: root.destroy())
+save_btn.pack()
 
 
 root.mainloop()
